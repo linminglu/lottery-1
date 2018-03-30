@@ -1,0 +1,2 @@
+forever server.js
+@pause
