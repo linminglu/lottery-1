@@ -15,6 +15,13 @@ module.exports = {
     // cluster 进程数量
     clusterNum : 4,
 
+    // 获取token的配置
+    dev_name: 'bree',
+
+    dev_key:'breedevkey',
+
+    dev_bind_id:4,
+
     // mysql 配置(前缀必须为 mysqlDb)127.0.0.1
     mysqlDb : {
         host : '127.0.0.1',
@@ -39,6 +46,7 @@ module.exports = {
             "LotteryRecord":"LotteryRecord",            // 彩源开奖期号
             "PreBonusOrder":"PreBonusOrder",            // 预中奖订单
             "PrePayOrder":"PrePayOrder",                // 预定单
+            "ServerToken":"ServerToken",                // 服务器token
         }
     },
 
@@ -75,11 +83,13 @@ module.exports = {
 
         "server_error_msg":"server_error_msg",
 
+
+        // 客户端请求事件
         "net_msg_select_betting_record":"net_msg_select_betting_record",
         "net_msg_select_lottery_record":"net_msg_select_lottery_record",
 
-        "net_msg_login":"net_msg_login",
-        "net_msg_login_result":"net_msg_login_result",
+        "net_msg_login":"net_msg_login",                // 登陆
+        "net_msg_login_result":"net_msg_login_result",  // 返回登陆结果
         "net_msg_lotteryrecord":"net_msg_lotteryrecord",
         "net_msg_select_auto_betting":"net_msg_select_auto_betting",
         "net_msg_auto_betlist":"net_msg_auto_betlist",
@@ -89,8 +99,8 @@ module.exports = {
         "net_msg_select_online_player":"net_msg_select_online_player",
         "net_msg_online_player":"net_msg_online_player",
         "net_msg_logout":"net_msg_logout",
-        "net_msg_betting":"net_msg_betting",
-        "net_msg_betting_result":"net_msg_betting_result",
+        "net_msg_betting":"net_msg_betting",              // 下注
+        "net_msg_betting_result":"net_msg_betting_result",// 返回下注结果
         "net_msg_enable_auto":"net_msg_enable_auto",
         "net_msg_enable_auto_betting":"net_msg_enable_auto_betting",
         "net_msg_cancel_auto":"net_msg_cancel_auto",
@@ -107,6 +117,9 @@ module.exports = {
         "event_close":"event_close"
 
     },
+
+    // 数据发送的限制数量
+    socketSendSeverCount:50,
 
 
 }

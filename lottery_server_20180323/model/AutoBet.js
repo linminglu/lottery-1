@@ -78,12 +78,14 @@ class AutoBet  {
                 console.log(`code is end${code}`)
                 continue;
             }
+            // let count = 10;
             issue = shareData.lotteryMgr.getLotteryIssue(code);
             gamelist = AutoBet.lotteryList[code];
             for (let gameType of gamelist) {
                 itemList = [];
                 // 根据机器人的数量投注
                 for (let index = 0; index < shareData.playerMgr.robotCount; index++) {
+                // for (let index = 0; index < count; index++) {
                     pId = AutoBet.pIdList[index];
                     noteInfo = AutoBet.randomBetNote(gameType);
                     itemList.push(  {playerId:pId,
@@ -102,6 +104,7 @@ class AutoBet  {
 
                 shareData.gameMgr.addPreBetItem(itemList, code, gameType, this).then((itemListA) => {
                     console.log(`AutoBet-autoBet-addPreBetItem ==>>`)
+                    // console.dir(itemListA)
                     // 發送服務中心
                     shareData.orderMgr.submitOrderItemList(itemListA,nowtime)
                 }).catch(function(err){
@@ -132,6 +135,7 @@ class AutoBet  {
             AutoBet.timerAutoBet = setInterval( () =>{
                 console.log('AutoBet-startAutoBetting-timerAutoBet ==>>');
                 if(AutoBet.testCount < 0){
+                    clearInterval(AutoBet.timerAutoBe)
                     return;
                 }
                 --AutoBet.testCount;

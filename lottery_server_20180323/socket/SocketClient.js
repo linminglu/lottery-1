@@ -1,11 +1,13 @@
 const  	WebSocket 		= require('ws'),
         eventCallBack   = require('../event/eventCallBack.js');
 
-let ws_client = null,
-    server_config = require('../config/serverConfig.js'),
+let server_config = require('../config/serverConfig.js'),
     WS_URL = `ws://${server_config.serverIP}:${server_config.serverPort}`;
+let ws_client = null;
 
-
+/*
+    客户端
+*/
 
 
 class SocketClient{
@@ -14,10 +16,18 @@ class SocketClient{
         console.log(`SocketClient init: dev_token= ${shareData.dev_token} ,dev_key=${shareData.dev_key}`)
         this.updateUserMoney = SocketClient.updateUserMoney;  
         this.changeUserMoney = SocketClient.changeUserMoney;   
-        SocketClient.initWebSocket().then( (data) => {
-            console.log(`SocketClient initWebSocket 成功`)
-        }).catch( (err) => {
-            console.log(`SocketClient initWebSocket err:${err}`)
+        ws_client = null;
+    }
+    init(){
+        console.log(`SocketClient_init ==>> `)
+        return new Promise((resolve, reject) => {
+            SocketClient.initWebSocket().then( (data) => {
+                console.log(`SocketClient-initWebSocket ==>> 成功`)
+                resolve(data)
+            }).catch( (err) => {
+                console.log(`SocketClient-initWebSocket err:${err}`)
+                reject(err)
+            });
         });
     }
 
@@ -27,10 +37,9 @@ class SocketClient{
         }
     }
 
-
     static initWebSocket(){
         return new Promise((resolve, reject) => {
-            console.log(`initwebsocket连接:`)
+            console.log(`initwebsocket连接: ${WS_URL} `)
             ws_client = new WebSocket(WS_URL);
             ws_client.addEventListener('open', event => { 
                 SocketClient.sendToServer(EVENTNAME.login);
@@ -50,6 +59,7 @@ class SocketClient{
                 console.log(`initWebSocket - listen close:${event}`);
                 SocketClient.disablePing( EVENTNAME.event_close);
             });
+            // resolve(1)
         })
        
     }
@@ -60,9 +70,9 @@ class SocketClient{
         }
         ws_client = null;
         console.log(`websocket client disconnect reason:${eventName}`);
-        if (this.pingTimer) {
-            clearInterval(this.pingTimer);
-            this.pingTimer = null;         
+        if (SocketClient.pingTimer) {
+            clearInterval(SocketClient.pingTimer);
+            SocketClient.pingTimer = null;         
         }
         if(SocketClient.reconnectTimer){
             SocketClient.reconnectTimer = null;
@@ -77,10 +87,10 @@ class SocketClient{
     }
 
     static enablePing () { 
-        if (this.pingTimer) {
+        if (SocketClient.pingTimer) {
             return;
         }  
-        this.pingTimer = setInterval(() => {
+        SocketClient.pingTimer = setInterval(() => {
             ws_client.send("");
             // ws_client.ping();
             // console.log('ping');
@@ -88,6 +98,7 @@ class SocketClient{
     }
 
     static sendToServer (eventName, data, submitType=0)  {
+        console.log(`SocketClient-sendToServer ==>>`)
         if (null == ws_client) {
             return;
         }
@@ -98,15 +109,11 @@ class SocketClient{
         let msg = SocketClient.decodeMsg(eventName, data);
         msg += "\r\n";
         ws_client.send(msg, (err)=>{
-            console.log(`使用socket发送服务器数据:${err} ,eventName:${eventName},发送数据是：${msg} 正在发送`);
+            console.log(`SocketClient-sendToServer ==>> 使用socket发送服务器数据:${err} ,eventName:${eventName},发送数据是：正在发送`);
             if (err) {
                 console.error(err);
             }else{
-                 console.log(`使用socket发送服务器数据:${err} ,eventName:${eventName},发送数据是：${msg} 发送成功`);
-                // // 发送修改玩家游戏的金币
-                // if (eventName == EVENTNAME.changeGameUserMoney) {
-
-                // }
+                 console.log(`SocketClient-sendToServer ==>> 使用socket发送服务器数据:${err} ,eventName:${eventName},发送数据是： 发送成功`);
             }
         });
     }
@@ -122,6 +129,7 @@ class SocketClient{
     }
 
     reconnect(){
+        console.log(`socketClient_reconnect ==>> `)
        SocketClient.initWebSocket().then( (data) => {
             console.log(`SocketClient initWebSocket 成功`)
         }).catch( (err) => {
@@ -134,7 +142,7 @@ class SocketClient{
      * @param {number} playerId 用户id
      */
     getUserInfo(playerId){
-         console.log(`getUserInfo:`)
+        console.log(`socketClient_getUserInfo ==>>`)
         SocketClient.sendToServer(EVENTNAME.getGameUser, {id:playerId});
     }
     /**
@@ -142,29 +150,19 @@ class SocketClient{
      * @param {Object[]} userList
      */
     static changeUserMoney(userList, createTime, submitType){
-        console.log(`socketClient-changeUserMoney =>>`)
-        // let list = userList[0]
-        // if(list.length >10){
-        //     list = list.splice(0,10)
-        // }
-        // for(var i = 0; i < list.length ; i++){
-        //     SocketClient.sendToServer(EVENTNAME.changeGameUserMoney, {game_user:[list[i]], create_time:createTime}, submitType);
-        // }
-        
-        SocketClient.sendToServer(EVENTNAME.changeGameUserMoney, {game_user:userList, create_time:createTime}, submitType);
-        
+        console.log(`socketClient_changeUserMoney ==>>`)
+        SocketClient.sendToServer(EVENTNAME.changeGameUserMoney, {game_user:userList, create_time:createTime}, submitType);   
         //id玩家id、money资金变动值、type资金类型1人民币2测试金币
-        // userList = [[{id:1,money:1,type:1,order:}],[{id:1,money:1,type:1}]];
-        
+        // userList = [[{id:1,money:1,type:1,order:}],[{id:1,money:1,type:1}]];    
     }
 
     reWriteUserMoney(userList, createTime){
-         console.log(`reWriteUserMoney:`)
+        console.log(`socketClient_reWriteUserMoney ==>>`)
         SocketClient.sendToServer(EVENTNAME.rewriteGameUserMoney, {game_user:userList, create_time:createTime});
     }
 
     exitGame(playerId){
-         console.log(`exitGame:`)
+        console.log(`socketClient_exitGame ==>> `)
         SocketClient.sendToServer(EVENTNAME.exitGame, {id:playerId});
     }
 }

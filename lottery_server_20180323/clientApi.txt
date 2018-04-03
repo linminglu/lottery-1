@@ -1,0 +1,202 @@
+彩票系统需求
+1、配置数据(每种游戏对应的玩法、每种玩法对应的投注内容和奖金)
+	gameConfig:{
+		gameData:[
+			{
+				gameName:CQSSC,
+				subGameList:[
+					{
+						subGameName:NIUNIU,
+					}
+
+				]
+			}
+			CQSSC:[{
+				gameType:NIUNIU,
+				gameData:
+			},{
+				BACCARAT:{}
+			},{
+				LONGHU:{}
+			},{
+				PK_HONGHEI:{}
+			}],
+			TXFFC:[{
+				NIUNIU:{},
+				BACCARAT:{},
+				LONGHU:{},
+				PK_HONGHEI:{}
+			}],
+			BJPK10:[{
+				PK_NIUNIU:{}
+			}],
+		]
+		
+		gameFun:[{type:0,title:"2元",price:2, fixed:0, rebate:1},
+                    {type:1,title:"1元",price:1, fixed:0, rebate:0.5},
+                    {type:2,title:"2角",price:0.2, fixed:1, rebate:0.1},
+                    {type:3,title:"1角",price:0.1, fixed:1, rebate:0.05},
+                    {type:4,title:"2分",price:0.02, fixed:2, rebate:0.001},
+                    {type:5,title:"2厘",price:0.002, fixed:3, rebate:0.0001}]
+	}
+2、通信协议
+{
+	客户端请求
+	1、登陆
+	请求参数: net_msg_login
+	{
+		lotteryCode:String（彩源类型）
+		gameType:String（游戏类型）
+		playerId:Number(用户id) 
+		（以上不可为空。）
+	}
+	返回参数: net_msg_login_result
+	{
+		用户基本信息（昵称、资金等）
+		result:
+			playerresult:{
+				name:String  //昵称
+				money:Number // 资金
+			}
+			suc：ok,
+			err:'' 	 	// 如果有错误，显示的是errConfig中的号码
+	}
+
+	返回错误示范：(其他的协议错误，如此格式返回)
+	{
+		用户基本信息（昵称、资金等）
+		result:
+			playerresult:''
+			suc：'',
+			err:10001 	 	
+	}
+
+	2、投注
+	请求参数: net_msg_betting
+	{
+		gameType:String游戏类型
+		betType:String投注类型
+		money:String投注金额
+	}
+	返回参数: net_msg_betting_result
+	{
+		投注是否成功
+		result:{
+			suc：ok,
+			err:''
+		}
+	}
+
+	3、开启挂机
+	请求参数为空: net_msg_enable_auto_betting
+	返回参数：net_msg_enable_auto_betting_result
+	{
+		是否开启成功	
+		result:{
+			suc：ok,
+			err:''
+		}
+	}
+	4、取消挂机
+	请求参数为空: net_msg_cancel_auto_betting
+	返回参数：net_msg_cancel_auto_betting_result
+	{
+		是否取消成功
+		result:{
+			suc：ok,
+			err:''
+		}
+	}
+	5、退出游戏
+	请求参数为空:  net_msg_exit
+	返回参数: net_msg_exit_result
+	{
+		result:{
+			suc：ok,
+			err:''
+		}
+	}
+	
+	服务器推送
+	1、近期开奖记录（登陆后推送一次）
+		请求参数: net_msg_select_lottery_record
+		返回参数: net_msg_select_lottery_record_result
+		{
+			State:1,
+			ServerTime:,(发送时间)
+			result:{
+				lotteryRecord:Array(开奖记录的数组)
+				suc：ok,
+				err:''
+			}
+		}
+	2、玩家个人最新一期投注记录（登陆后推送一次）
+		请求参数: net_msg_self_new_betting_record
+		返回参数: net_msg_self_new_betting_record_result
+		{
+			State:1,
+			ServerTime:,(发送时间)
+			result:{
+				betRecord:object(最近一期投注信息)
+				suc：ok,
+				err:''
+			}
+		}
+	3、在线玩家列表
+		请求参数: net_msg_player_online_list
+		返回参数: net_msg_player_online_list_result
+		{
+			State:1,
+			ServerTime:,(发送时间)
+			result:{
+				onlineList:Array(在线玩家列表)
+				suc：ok,
+				err:''
+			}
+		}
+	4、最新开奖数据（同一种彩源下的游戏用户都需要广播）
+		返回参数: net_msg_new_lottery_result_B
+		{	
+			State:1,
+			ServerTime:,(发送时间)
+			result:{
+				winlist:Object(开奖记录)
+				suc：ok,
+				err:''
+			}
+		}
+	5、广播同一个游戏的所有玩家投注
+		返回参数: net_msg_the_game_all_betting_result_B
+		{
+			State:1,
+			ServerTime:,(发送时间)
+			result:{
+				allBetting:Array(所有玩家的投注信息)
+				suc：ok,
+				err:''
+			}
+		}
+}
+
+
+
+3.数据解析
+
+errConfig:
+{
+	10001:"登陆失败",
+
+	20001："投注失败",
+	20002："本期投注已截至",
+	20003："未选择投注类型",
+	20004："投注的数据不合法",
+	20005："资金不足",
+
+	30001:"挂机失败",
+	30002:"挂机失败,不能重复挂机",
+	30003:"挂机失败,本期未投注",
+
+	40001:"取消挂机失败",
+	40002:"取消失败,用户不存在",
+	50001:"退出游戏失败"
+}

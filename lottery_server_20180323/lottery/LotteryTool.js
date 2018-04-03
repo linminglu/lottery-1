@@ -88,6 +88,7 @@ let bjpkBetEndTime = (openTime) => {
 }
 
 let LotteryTool = {
+    
     /**
      * 获取下一期期号
      * @param {any} info 本期开奖数据 

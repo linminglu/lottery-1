@@ -13,17 +13,22 @@ class Order{
      * 向数据中心提交订单
      * @param {any[]} items 订单列表
      * @param {number} createTime
+     * @param {number} sumbitType  1:下注 2:赢钱 
      */
     static submitOrderItem  (items, createTime, sumbitType ){
+        console.log(`Order-submitOrderItem==>>`)
         let userList = [];
         for (let item of items) {
             userList.push([{order:item[0], id:item[1], money_type:item[2], money:item[3]*0.1, style:item[4], gameType:item[5], lotteryCode:item[6]}]);
+            // userList.push([{order:item[0], id:item[1], money_type:item[2], money:item[3], style:item[4], gameType:item[5], lotteryCode:item[6]}]);
         }
         SocketClient.changeUserMoney(userList, createTime, sumbitType);
     }
 
     // 向數據中心提交訂單列表
     submitOrderItemList (itemList,createTime,sumbitType = 1){
+
+        console.log(`order_submitOrderItemList ==>> `)
         if(!itemList){
             return;
         }
@@ -33,26 +38,33 @@ class Order{
         let submitObj = {}
 
         // let count = 11;   // 测试使用限制数据发送
-
-        for(let item of itemList){
-            // --count;
-            // if(count < 0){
-            //     break;
+        let count = ServerConfig.socketSendSeverCount; // 分批超过该数量再分一组
+        for(let item = 0; item < itemList.length ; item++){
+            submitObj = {}
+            submitObj = Order.setSubmitObjFromClient(itemList[item]);
+            orderList.push([submitObj])
+            // singleList.push(submitObj)
+            // orderList.push(singleList)
+            // if(item + 1 == itemList.length || (item + 1) % count == 0){
+            //     // 发送数据 
+              
+            //     singleList = []
+            //     submitObj = {};
             // }
-            // console.dir(item)
-            singleList = []
-            submitObj = {};
-            submitObj.order = item.orderId;
-            submitObj.id = item.playerId;
-            submitObj.money_type = item.money_type || 1;
-            submitObj.money =  -item.betMoney;
-            submitObj.style = item.style || 1;
-            submitObj.gameType = item.gameType;
-            submitObj.lotteryCode = item.lotteryCode;
-            singleList.push(submitObj)
-            orderList.push(singleList)
-        } 
+        }  
         SocketClient.changeUserMoney(orderList,createTime,sumbitType);
+    }
+
+    static setSubmitObjFromClient (item){
+        return {
+            order : item.orderId,
+            id : item.playerId,
+            money_type : item.money_type || 1,
+            money  : -item.betMoney,
+            style : item.style || 1,
+            gameType : item.gameType,
+            lotteryCode : item.lotteryCode,
+        }
     }
 
     /**
@@ -67,15 +79,16 @@ class Order{
 
     /**
      * 确认投注订单
-     * @param {any[]} items 
+     *  // @param {any[]} items （以前）
+     *   @param {obj{}} items 
      */
     distributeBetItem  (list) {
         return new Promise((resolve, reject) => {
             console.log(` order-distributeBetItem ->>  `)
-            // console.dir(itemsD)
-            if (list.length > 0) {
-                shareData.gameMgr.addRealBetList(list);
+            for(var create_time in list){
+                shareData.gameMgr.addRealBetList(list[create_time]);
             }
+
             // let itemZ;
             // for (let orderMsg of list) {
             //     itemZ = shareData.gameMgr.getBetItem(orderMsg);
@@ -169,7 +182,7 @@ class Order{
      * @param {any[]} data.list 订单列表
      * @param {number} data.date 操作日期 
      */
-    static addWinOrderItem(data){
+    addWinOrderItem(data){
         // this.cacheBonusOrder.push(data);
         // if (null == this.internalSumbitBonus) {
         //     this.internalSumbitBonus = setInterval(internalSumbitBonusCommand.bind(this), 50);
@@ -209,33 +222,64 @@ class Order{
         let successPayList = [];
         let delBonusList = [];
         let successBonusList = [];
+
+        let successBonusObjKeyTime = {} 
+        let successPayObjKeyTime = {} 
+
+        let delPayObjKeyTime = {}
+        let delBonusObjKeyTime = {}
+
         if (error_list && error_list.length > 0) {
             let order;
+            let create_time;
             //从orderList中删除数据，如果用户在线，通知用户资金不足
             for (let itemsO of error_list) {
-                order = itemsO[0].order;          
+                order = itemsO[0].order;    
+                create_time = itemsO[0].create_time;      
                 if (itemsO[0].style == 1) {
-                    Order.sendBetFailedMessage(itemsO[0].id);
-                    delPayList.push(order);
+                    Order.sendBetFailedMessage(itemsO[0].id, "资金不足");
+                    if(!delPayObjKeyTime[create_time]){
+                        delPayObjKeyTime[create_time]=[]
+                    }
+                    delPayObjKeyTime[create_time].push(order)
                 }else{
-                    delBonusList.push(order);
+                    if(!delBonusObjKeyTime[create_time]){
+                        delBonusObjKeyTime[create_time] = []
+                    }
+                    delBonusObjKeyTime[create_time].push(order)
                 }               
             }
-            // console.log(`delPayList =>`)
-            // console.dir(delPayList)
-            // console.log(`delBonusList =>`)
-            // console.dir(delBonusList)
         }
         if (success_list && success_list.length > 0) {  
             let orderId;
+            let create_time;
             for (let itemsS of success_list) {
-                orderId = itemsS[0].order;      
-                if (itemsS[0].style == 1) {                    
-                    successPayList.push(itemsS[0]);                     
+                // console.log(`==========`)
+                // console.dir(itemsS[0])
+                
+                orderId = itemsS[0].order;  
+                create_time = itemsS[0].create_time;    
+                if (itemsS[0].style == 1) {    
+                    if(!successPayObjKeyTime[create_time]){
+                        successPayObjKeyTime[create_time] = []    
+                    }        
+                    successPayObjKeyTime[create_time].push(itemsS[0])        
                 }else{
-                    successBonusList.push(itemsS[0]);
+                     if(!successBonusObjKeyTime[create_time]){
+                        successBonusObjKeyTime[create_time] = []    
+                    }        
+                    successBonusObjKeyTime[create_time].push(itemsS[0])
                 }       
             }
+            // console.log(` successBonusObjKeyTime =>`)
+            // console.dir(successBonusObjKeyTime)
+            // console.log(` successPayObjKeyTime =>`)
+            // console.dir(successPayObjKeyTime)
+            // console.log(` delBonusObjKeyTime =>`)
+            // console.dir(delBonusObjKeyTime)
+            // console.log(` delPayObjKeyTime =>`)
+            // console.dir(delPayObjKeyTime)
+
             // console.log(`success_list => ` );
             // console.dir(success_list)
             // console.log(`successPayList => `);
@@ -243,31 +287,32 @@ class Order{
             // console.log(`successBonusList => `);
             // console.dir(successBonusList)
         }
-        let nowDate = Tools.TimeToDate(data.createTime*1000);
-
+        // console.log(`createTime = ${createTime}`)
+        // let nowDate = Tools.TimeToDate(createTime*1000);
+        // console.log(`nowDate = ${nowDate}`)
         // 更新信息已经收到
-        shareData.mongooseClient.addReceiveOrderRecord(successPayList, error_list, nowDate).then(
+        shareData.MongooseClient.ReceiveOrderModel.addReceiveOrderRecord(successPayObjKeyTime, error_list).then(
             ()=>{
                 console.log(`Order-handleValidOrder-distributeBetItem = >`)
-                 return shareData.orderMgr.distributeBetItem(successPayList)//向游戏房间广播新增投注
+                 return shareData.orderMgr.distributeBetItem(successPayObjKeyTime)//向游戏房间广播新增投注
             }
         ).then(
             ()=>{
                  console.log(`Order-handleValidOrder-confrimPrePayOrder = >`)
-                return shareData.mongooseClient.confrimPrePayOrder(successPayList, delPayList)  // 确认订单是否成功
+                return shareData.MongooseClient.PayOrderModel.confrimPrePayOrder(successPayObjKeyTime, delPayObjKeyTime)  // 确认订单是否成功
             }
         ).then(
             ()=>{
                 console.log(`Order-handleValidOrder-confrimPreBonusOrder = >`)
-                return shareData.mongooseClient.confrimPreBonusOrder(successBonusList, delBonusList) // 确认中奖订单
+                return shareData.MongooseClient.BonusOrderModel.confrimPreBonusOrder(successBonusObjKeyTime, delBonusObjKeyTime) // 确认中奖订单
             }
         ).then(
             ()=>{
-                if (successBonusList.length>0) {
+                if (successBonusObjKeyTime.length>0) {
                      console.log(`Order-handleValidOrder-addRealBonusOrder = >`)
-                    shareData.mongooseClient.addRealBonusOrder(successBonusList, nowDate).then( ()=>{
-                         console.log(` Order-handleValidOrder suc `)
-                    })
+                    // shareData.mongooseClient.BonusOrderModel.addRealBonusOrder(successBonusObjKeyTime).then( ()=>{
+                    //      console.log(` Order-handleValidOrder suc `)
+                    // })
                 }else{
                     console.log(` Order-handleValidOrder suc `)
                 }

@@ -39,7 +39,7 @@ class RealSource{
      */
     requestNextLottery(params) {
         let url = `${urlHead}${params.issue}/${params.code}.json`;
-        console.log(`拉取彩源${params.code}第${params.issue}期开奖数据 => url:${url}`);
+        console.log(`RealSource-requestNextLottery   code:${params.code}第${params.issue}期开奖数据 => url:${url}`);
         request.get(url,  (error, response, body) => {
             if (!error && response.statusCode == 200) {
                 let codelist = JSON.parse(body);                     

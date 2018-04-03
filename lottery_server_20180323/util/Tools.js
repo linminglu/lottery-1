@@ -21,34 +21,16 @@ Tools.DayDate =  () => {
  * 获取当天日期：年月日20180214
  */
 Tools.DayDateNumber =  () => {
-    // let nowDate = new Date();
-    // let year = nowDate.getFullYear();
-    // let month = (nowDate.getMonth() < 10 ? '0' + (nowDate.getMonth() + 1) : (nowDate.getMonth() + 1));
-    // let days = (nowDate.getDate() < 10 ? '0' + nowDate.getDate() : nowDate.getDate());
-
-    // return `${year}${month}${days}`;
     return moment().format('YYYYMMDD');  
 }
-// console.log(Tools.DayDateNumber())
 
 /**
  * 时间戳转化为年月日格式的日期
  * @param {number} nowTime 时间戳
  */
 Tools.TimeToDate =  (nowTime) => {
-    // let nowDate = new Date(nowTime);
-    // let year = nowDate.getFullYear();
-    // let month = (nowDate.getMonth() < 10 ? '0' + (nowDate.getMonth() + 1) : (nowDate.getMonth() + 1));
-    // let days = (nowDate.getDate() < 10 ? '0' + nowDate.getDate() : nowDate.getDate());
-    // return `${year}${month}${days}`;
      return moment(nowTime).format('YYYYMMDD');  
 }
-
-// // Split timestamp into [ Y, M, D, h, m, s ]
-// var t = data.opendate.split(/[- :]/);
-
-// // Apply each element to the Date function
-// var d = new Date(Date.UTC(t[0], t[1]-1, t[2], t[3], t[4], t[5]));
 
 // console.log(d); 
 Tools.PadNumber =  (num, fill) => {
@@ -136,6 +118,27 @@ Tools.ObjectToArray = (obj) =>{
         arr.push(obj[item])
     }
     return arr;
+}
+
+
+/*
+* 将对象里的数组合并，并提取全部对象中一个属性，
+* string  args 属性名
+**/
+
+Tools.getObjInArrInArgs = (obj, args) =>{
+    let arr = []
+    let list = []
+    // 将所有的数组合并
+    for(let create_time in obj){
+        arr = arr.concat( obj[create_time])
+    }
+    for(let item of arr){
+        if(item[args]){
+            list.push(item[args])
+        }
+    }
+    return list;
 }
 
 module.exports = Tools;

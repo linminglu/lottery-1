@@ -135,18 +135,16 @@ class GameMgr{
      */
     addPreBetItem(items, lotteryCode, gameType, AutoBet){
         return new Promise((resolve, reject) => {
-            console.log(`GameMgr-addPreBetItem ==>>   
-                            新增投注数据：lotteryCode:${lotteryCode}
-                            ,游戏类型：${gameType} 新增数量:${items.length} `);
+            console.log(`GameMgr-addPreBetItem ==>> `);
             if (items.length == 0) {
                 resolve(1)
             }else{
                 let games = GameMgr.gameGroup[lotteryCode];
                 if (games) {
                     games[gameType].addPreBetItemList(items,AutoBet).then(
-                        (items) => {
+                        (items1) => {
                         // 保存到数据库
-                        return shareData.mongooseClient.addPrePayOrder(items)
+                        return shareData.MongooseClient.PayOrderModel.addPrePayOrder(items1)
                         // resolve(items);
                     }).then( ()=>{
                          resolve(items);

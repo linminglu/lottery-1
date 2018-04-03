@@ -1,7 +1,6 @@
 var Tool = require('../util/Tools.js'),
     EventHandler = require('../event/event.js')
     clone = require('clone');
-    MongooseClient = require('../mongodb/mongodb.js');
 
 class BaseGame{
     constructor(code, gameType){
@@ -16,7 +15,6 @@ class BaseGame{
         this.orderId = 0;
         this.orderExt = Math.floor(Date.now()*0.001).toString(36) + this.gameId;
         this.preBetItemList = {};
-        this.preBetItemListTimeSave = {};
         this.betDate = Tool.DayDateNumber();
         this.betTimeStamp = Math.floor(Date.now()*0.001);
         shareData.eventHandler.emit(shareData.eventHandler.Inner.START_AUTOBET, {lotterycode:code, game:gameType});
@@ -38,58 +36,58 @@ class BaseGame{
         
     }  
     
-    runSaveData(){
-        return new Promise((resolve, reject) => {
-            console.log(` runSaveData start :`)
-            if(this.saveDataTimeDo){
-                this.saveDataTimeDo = null;
-            }
-            this.saveDataTimeDo = setInterval(() =>{
-                this.saveData().then( (data)=>{
-                    console.log(` 定时器 saveDataTimeDo =>> ${data}`)
+    // runSaveData(){
+    //     return new Promise((resolve, reject) => {
+    //         console.log(` runSaveData start :`)
+    //         if(this.saveDataTimeDo){
+    //             this.saveDataTimeDo = null;
+    //         }
+    //         this.saveDataTimeDo = setInterval(() =>{
+    //             this.saveData().then( (data)=>{
+    //                 console.log(` 定时器 saveDataTimeDo =>> ${data}`)
 
-                } ).catch( (error)=>{
-                    console.log(` 定时器 saveDataTimeDo error =>> ${error}`)
-                } )
-            },this.saveDataTime);
-            resolve(1)
-        });
+    //             } ).catch( (error)=>{
+    //                 console.log(` 定时器 saveDataTimeDo error =>> ${error}`)
+    //             } )
+    //         },this.saveDataTime);
+    //         resolve(1)
+    //     });
        
-    }
+    // }
 
-    saveData(){
-        return new Promise((resolve, reject) => {
-            console.log(` BaseGame ==>> saveData `)
-            if(Object.keys(this.preBetItemListTimeSave).length >0 ){
-                let preBetItemListTimeSave_new = clone(this.preBetItemListTimeSave)
-                this.preBetItemListTimeSave = {};
-                 MongooseClient.addPrePayOrder(preBetItemListTimeSave_new, (error, doc)=>{
-                    if (error) {
-                        reject(error)
-                    }else{
-                        preBetItemListTimeSave_new == {};
-                        // shareData.eventHandler.emit(EventHandler.Inner.SUMBIT_BETITEM, {list:items, date:this.betTimeStamp});
-                        resolve(doc)
-                    }
-                })
-            }
-        });
-    }
+    // saveData(){
+    //     return new Promise((resolve, reject) => {
+    //         console.log(` BaseGame ==>> saveData `)
+    //         if(Object.keys(this.preBetItemListTimeSave).length >0 ){
+    //             let preBetItemListTimeSave_new = clone(this.preBetItemListTimeSave)
+    //             this.preBetItemListTimeSave = {};
+    //              MongooseClient.addPrePayOrder(preBetItemListTimeSave_new, (error, doc)=>{
+    //                 if (error) {
+    //                     reject(error)
+    //                 }else{
+    //                     preBetItemListTimeSave_new == {};
+    //                     // shareData.eventHandler.emit(EventHandler.Inner.SUMBIT_BETITEM, {list:items, date:this.betTimeStamp});
+    //                     resolve(doc)
+    //                 }
+    //             })
+    //         }
+    //     });
+    // }
 
     /*
         游戏退出，将所有数据保存到数据库中
     */
-    exit(){
-        return new Promise((resolve, reject) => {
-            if(this.saveDataTimeDo){
-                this.saveDataTimeDo = null;
-            }
-            this.saveData()
-            // .then(()=>{
-                resolve(1)
-            // }).catch( (error) => { reject(error) } );
-        });
-    }
+    // exit(){
+    //     return new Promise((resolve, reject) => {
+    //         if(this.saveDataTimeDo){
+    //             this.saveDataTimeDo = null;
+    //         }
+    //         this.saveData()
+    //         // .then(()=>{
+    //             resolve(1)
+    //         // }).catch( (error) => { reject(error) } );
+    //     });
+    // }
 
     initBettingList(issue) {
         // MongooseClient.findBetItemFromGame(this.lotteryCode, issue, this.gameType, (err, res)=>{
@@ -120,7 +118,6 @@ class BaseGame{
                 this.orderId ++;
                 item.orderId = this.orderExt + this.orderId;
                 this.preBetItemList[item.orderId] = item;
-                this.preBetItemListTimeSave[item.orderId] = item;
             }
             // 返回帶有orderid的數據
             resolve(items)
@@ -139,7 +136,6 @@ class BaseGame{
                     realItem.push(item);
                     this.bettingList.push(item);
                     delete this.preBetItemList[orderId];
-                    delete this.preBetItemListTimeSave[orderId];
                 }
             }
             if (null == this.betDate) {
@@ -149,6 +145,7 @@ class BaseGame{
         });
         
         // MongooseClient.addRealPayOrder(realItem, this.betDate);
+        shareData.MongooseClient.RealPayOrderModel.addRealPayOrder(realItem, this.betDate);
     }
 
     updateBetRank(beter, bonus){
@@ -182,6 +179,7 @@ class BaseGame{
 
     updateBonusRank(winner){  
         return new Promise((resolve, reject) => {
+            console.log(` base-updateBonusRank ==>> `)
             this.bonusRankList = [];
             if (Object.keys(winner).length < 1) {
                 reject(1)
@@ -205,8 +203,8 @@ class BaseGame{
                     return 0;
                 });
             }   
-            resolve(1);
             shareData.eventHandler.emit(shareData.eventHandler.Inner.BROADCAST_BONUSRANK, {gounpId:this.gameId, list:this.getBonusRankList()});
+            resolve(1);
         });
     }
 
@@ -278,17 +276,21 @@ class BaseGame{
         //更新玩家投注订单的状态
         if (winnerList.length > 0) {
             console.log(`giveBonus ==>> 中奖人数: ${winnerList.length}`)
-            MongooseClient.updateRealPayOrder(updateList, this.betDate);
+            shareData.MongooseClient.RealPayOrderModel.updateRealPayOrder(updateList, this.betDate);
             let betTimeStamp = this.betTimeStamp;
             let lotteryCode = this.lotteryCode;
             // 保存数据并发送给服务中心
-            MongooseClient.addPreBonusOrder(winnerList,betTimeStamp)
+            shareData.MongooseClient.BonusOrderModel.addPreBonusOrder(winnerList,betTimeStamp)
                 .then(()=>{
-                    return MongooseClient.updateLotteryWinRecord(issue,lotteryCode,pId_bonusList)
+                    return shareData.MongooseClient.LotteryRecordModel.updateLotteryWinRecord(issue,lotteryCode,pId_bonusList);
                 }).then( () =>{
-                    return this.updateBetRank(pId_betMoney,pId_bonus)
-                }).then( ()=> this.updateBonusRank() ).then( (data)=>{
-                    console.log(` giveBonus  ===>>> 发送消息给服务中心`)
+                    console.log(`base-giveBonus-updateLotteryWinRecord ==>> suc`)
+                    return this.updateBetRank(pId_betMoney,pId_bonus);
+                }).then( ()=> {
+                    console.log(`base-giveBonus-updateBetRank ==>> `)
+                    return this.updateBonusRank(pId_bonus);
+                } ).then( (data)=>{
+                    console.log(`base-giveBonus-updateBonusRank  ===>>> 发送消息给服务中心`)
                     shareData.eventHandler.emit(shareData.eventHandler.Inner.ADD_WINNING_BETITEM, {list:winnerList, date:betTimeStamp});
                     //广播中奖信息
                     shareData.eventHandler.emit(shareData.eventHandler.Inner.BROADCAST_WININFO, {code:lotteryCode, win:pId_bonus});
@@ -298,7 +300,7 @@ class BaseGame{
                 })
         }else{
             console.log(`giveBonus ==>> 本期没有中奖`)
-            this.updateBetRank(pId_betMoney,pId_bonus).then(this.updateBonusRank).then( (data)=>{
+            this.updateBetRank(pId_betMoney,pId_bonus).then( (data)=>{
                 console.log("更新成功",data)
             } ).catch( (err)=>{
                 console.log("异常~",err)
@@ -316,13 +318,11 @@ class BaseGame{
      */
     autoBetting(issue) {
         return new Promise((resolve, reject) => {
+            console.log(`Base_autoBetting ==>> `)
             this.betDate = Tool.DayDateNumber();
             this.betTimeStamp = Math.floor(Date.now()*0.001);
-            MongooseClient.findAutoBetFromGame(this.lotteryCode, this.gameType, (err, res)=>{
-                if (err) {
-                    reject(1);
-                    return;
-                }
+            shareData.MongooseClient.AutoBetOrderModel.findAutoBetFromGame(this.lotteryCode, this.gameType).then( (res)=>{
+                console.dir(res)
                 let length = res.length;
                 if (length < 1) {
                     resolve(1);
@@ -349,7 +349,7 @@ class BaseGame{
                 }
                   
                 if (itemlist.length > 0) {
-                    MongooseClient.addPrePayOrder(itemlist, (error, doc)=>{
+                    shareData.MongooseClient.PayOrderModel.addPrePayOrder(itemlist, (error, doc)=>{
                         if (error) {
                             console.error('add pre pay order failed', error);
                             reject(error);
@@ -359,7 +359,9 @@ class BaseGame{
                         resolve(1)
                     });
                 }
-            });
+            } ).catch( (err) =>{
+                reject(err);
+            } )
         });
         
     }

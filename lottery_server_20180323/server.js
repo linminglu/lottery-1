@@ -10,13 +10,18 @@ let 	EventHandler = require('./event/event.js'),
 	 	LotteryMgr = require('./lottery/LotteryMgr.js'),
 		GameMgr = require('./game/GameMgr.js'),
 		Order = require('./model/Order.js'),
-		PlayerMgr = require('./player/PlayerMgr.js');
+		PlayerMgr = require('./player/PlayerMgr.js'),
+		MongoTool = require('./mongodb/mongodb.js')
+		express = require('express'),
+		app = express(),
+	    server = require('http').createServer(app),
+	    io = require('socket.io').listen(server);
 
 
 // 进程异常处理
-process.on('uncaughtException', (err) => {
-  console.error(`server-uncaughtException error:${err}`);
-});
+// process.on('uncaughtException', (err) => {
+//   console.error(`server-uncaughtException error:${err}`);
+// });
 
 // 进程退出处理
 process.on('exit',(code) => {
@@ -26,14 +31,14 @@ process.on('exit',(code) => {
 		let count = 1;
 		// 将剩下没有处理完的数据保存到数据库中
 		for(let code of gameGroup){
-			for(let gameType of gameGroup.code){
-				if(gameGroup.code.gameType){
-					gameGroup.code.gameType.exit().then(()=>{
-						++count;
-					}).catch((error) =>{
-						console.log(`server-exit error:${error} `)
-					}) 
-				}
+			if(!code){continue;}
+			for(let gameType of code){
+				if(!gameType){continue;}
+				gameType.exit().then(()=>{
+					++count;
+				}).catch((error) =>{
+					console.log(`server-exit error:${error} ${count}`)
+				}) 
 			}
 		}		
 	}
@@ -44,7 +49,10 @@ process.on('exit',(code) => {
 global.shareData = {};
 global.EVENTNAME = {}; 
 global.ServerConfig = require('./config/serverConfig.js');
+global.io = io;						
+global.server = server;				// http
 
+// 启动
 serverInt();
 
 // // 启动服务器
@@ -60,12 +68,27 @@ function serverInt (){
 	  5.发送未发送的信息
 	*/
 	shareDataInt()		
-		.then(MongodbInit)
-		.then(eventStart)
-		.then(NetTokenInit)
-		.then(resolveData_PreBonusOrder)
-		.then(resolveData_LotteryIssue)
-		// .then(resolveData)
+		.then( ()=>{
+			console.log(` server-serverInt-shareDataInt ==>> suc`)
+			return MongodbInit()
+		} )
+		.then( ()=>{
+			console.log(` server-serverInt-MongodbInit ==>> suc`)
+			return eventStart()
+		})
+		.then( ()=>{
+			console.log(` server-serverInt-eventStart ==>> suc`)
+			return NetTokenInit()
+		})
+		.then( ()=>{
+			console.log(` server-serverInt-NetTokenInit ==>> suc`)
+			// return resolveData_PreBonusOrder()
+			return resolveData_Prepayorders()
+		})
+		.then( () =>{
+			console.log(` server-serverInt-resolveData_PreBonusOrder ==>> suc`)
+			return resolveData_LotteryIssue()
+		})
 		.then(function(){
 			console.log(`启动完成服务器 `)
 		}).catch(function(err){
@@ -91,16 +114,16 @@ function shareDataInt(){
 		shareData.lotteryIssueData = [];//接受过投注的彩种最后一期的期号
 		shareData.eventHandler = EventHandler;
 		shareData.dev_url = `http://${ServerConfig.serverIP}:${ServerConfig.serverPort}`;//大厅服务器地址10.73.1.120--23.97.65.238
-		shareData.dev_name = 'nick';//nick1
-		shareData.dev_key = '96e9d040efdae89f77980ddb303c24e9';//96e9d040efdae89f77980ddb303c24e8
-		shareData.dev_bind = 1;
+		shareData.dev_name = ServerConfig.dev_name;
+		shareData.dev_key = ServerConfig.dev_key;
+		shareData.dev_bind = ServerConfig.dev_bind_id;
 		shareData.dev_token = null;
 		shareData.orderMgr = null;
 		shareData.playerMgr = null;
 		shareData.lotteryMgr = null;
 		shareData.gameMgr = null;
 
-		shareData.mongooseClient = require('./mongodb/mongodb.js');
+		
 		resolve(1)
 	});	
 }
@@ -108,53 +131,56 @@ function shareDataInt(){
 
 // 连接mongodb数据库
 function MongodbInit(){
-	console.log('2.连接数据库')
-	return require('./mongodb/mongodb.js').MongodbInit()
-}
-
-function* sendResolveData_PreBonusObj(PreBonusObjList){
-	for(var item in PreBonusObjList){
-		yield shareData.orderMgr.submitOrderItemList(PreBonusObjList[item],item)
-		// yield shareData.eventHandler.emit(shareData.eventHandler.Inner.ADD_WINNING_BETITEM, 
-		// 			{list:PreBonusObjList[item], date:item});
-	}
+	return new Promise((resolve, reject) => {
+		console.log('2.连接数据库')
+		shareData.MongooseClient = new MongoTool();
+		shareData.MongooseClient.MongodbInit().then((data)=>{
+			resolve(data)
+		} ).catch( (err)=>{
+			reject(err)
+		} );
+	});
+	
 }
 
 function* sendResolveData_LotteryRecord(LotteryRecordList){
-	// console.dir(LotteryRecordList)
 	for(var item in LotteryRecordList){
-		// console.dir(LotteryRecordList[item])
 		if(LotteryRecordList[item].lotteryCode && LotteryRecordList[item].winList){
 			yield  shareData.eventHandler.emit(shareData.eventHandler.Inner.BROADCAST_WININFO, 
 			{code:LotteryRecordList[item].lotteryCode, win:LotteryRecordList[item].winList});
 		}
-		
-
 	}
 }
 
 // 解決未發送出去的新頭單
-function resolveData_PreBonusOrder(){
+function resolveData_Prepayorders(){
 	console.log('5.处理未处理完的数据')
 	return new Promise((resolve, reject) => {
-		shareData.mongooseClient.getNoSendData_preBonusOrder().then(function(res){
-			// console.log(`resolveData: => getNoSendData_preBonusOrder`)
-			// console.dir(`${res}`)
+		console.log(`server_resolveData_Prepayorders ==>> `)
+		shareData.MongooseClient.PayOrderModel.getNoSendData_prePayOrder().then(function(res){
+			console.log(`server_getNoSendData_prePayOrder ==>> `);
 			if(res){
-				let PreBonusObjList = {}
+				let PrepayorderObjList = {}
 				for(let item of res){
-					if(res.item.betTimeStamp){
-						if(!PreBonusObjList[res.item.betTimeStamp]){
-							PreBonusObjList[res.item.betTimeStamp] = []
+					if(item.timestamp){
+						if(!PrepayorderObjList[item.timestamp]){
+							PrepayorderObjList[item.timestamp] = []
 						}
-						PreBonusObjList[res.item.betTimeStamp].push(res.item);
+
+						PrepayorderObjList[item.timestamp].push({
+							order : item.orderId,
+				            id : item.playerId,
+				            money_type : item.money_type || 1,
+				            money  : -item.betMoney,
+				            style : item.style || 1,
+				            gameType : item.gameType,
+				            lotteryCode : item.lotteryCode,
+						})
 					}
 				}
-				// key : betTimeStamp value: winlist
-				let  goRun = sendResolveData_PreBonusObj(PreBonusObjList)
-				// 分批发送给服务中心
-				for(let sendCount =0 ; sendCount < PreBonusObjList.length ; sendCount++){
-					goRun.next();
+				for(let createTime in PrepayorderObjList){
+					console.log(`server_resolveData_Prepayorders sendMsg ==>>`)
+					shareData.orderMgr.submitOrderItemList(PrepayorderObjList[createTime],createTime)
 				}
 			}
 			resolve(1);
@@ -167,14 +193,14 @@ function resolveData_PreBonusOrder(){
 
 function resolveData_LotteryIssue(){
 	return new Promise((resolve, reject) => {
-		shareData.mongooseClient.getNoSendData_lotteryIssue().then( (res)=>{
+		shareData.MongooseClient.LotteryRecordModel.getNoSendData_lotteryIssue().then( (res)=>{
 			console.log(`resolveData: => getNoSendData_lotteryIssue`)
 			if(res){
-				let goRun = sendResolveData_LotteryRecord(res);
-				// 分批发送给服务中心
-				for(let sendCount =0 ; sendCount < res.length ; sendCount++){
-					goRun.next();
-				}
+				// let goRun = sendResolveData_LotteryRecord(res);
+				// // 分批发送给服务中心
+				// for(let sendCount =0 ; sendCount < res.length ; sendCount++){
+				// 	goRun.next();
+				// }
 			}	
 			resolve(1);
 		}).catch( (err)=>{
@@ -197,13 +223,17 @@ function eventStart(){
 				shareData.socketClient.reconnect();
 			} else {
 				shareData.socketClient = new SocketClient();
-
 				shareData.orderMgr = new Order();
 				shareData.playerMgr = new PlayerMgr();
 				shareData.lotteryMgr = new LotteryMgr();
 				shareData.gameMgr = new GameMgr();
 				shareData.autoBet = new AutoBet();
-				shareData.autoBet.init().then( ()=>{
+				shareData.socketClient.init().then(
+					(data)=>{
+						console.log(`shareData.socketClient.init ==>> suc`)
+						return shareData.autoBet.init()
+					}
+				).then( ()=>{
 					openAllEvent()
 					// new GameMgr();
 					shareData.gameMgr = new GameMgr();
@@ -212,8 +242,8 @@ function eventStart(){
 					// reject(error)
 					console.log(`server-EventHandler-inner_event_token_ready error:${error}`)
 				} )
-				
 			}
+
 		});
 		resolve(1)
 	});
@@ -268,8 +298,8 @@ function openAllEvent(){
 	EventHandler.on(EVENTNAME.inner_event_server_receive, (data) => {
 		console.log(`server-EventHandler-inner_event_server_receive ==>>`);
 		if( data && typeof data == 'Object'){	
-			shareData.mongooseClient.updateSendData_lotteryIssue(data.BROADCAST_WININFO)
-				.then(shareData.mongooseClient.updateSendData_preBonusOrder(data.ADD_WINNING_BETITEM))
+			shareData.MongooseClient.LotteryRecordModel.updateSendData_lotteryIssue(data.BROADCAST_WININFO)
+				.then(shareData.MongooseClient.BonusOrderModel.updateSendData_preBonusOrder(data.ADD_WINNING_BETITEM))
 				.then( (doc)=>{
 					console.log(`server-EventHandler-inner_event_server_receive ==>> suc`);
 					// console.log(`处理服务器返回接收成功数据`)
@@ -317,7 +347,8 @@ function openSocketServerEvent(){
                 }    
             }
         }
-		shareData.socketServer.sendToAllClient( EVENTNAME.net_msg_bet_winning, winlist);
+		// shareData.socketServer.sendToAllClient( EVENTNAME.net_msg_bet_winning, winlist);
+		shareData.socketServer.sendTo_AllClient( EVENTNAME.net_msg_new_lottery_result_B, {winlist:winlist},);
 	});
 
 	EventHandler.on(shareData.eventHandler.Inner.BROADCAST_BET,  (params) => {
@@ -336,7 +367,8 @@ function openSocketServerEvent(){
                 }
             });		
 		}
-		shareData.socketServer.sendToGroup(params.gounpId, EVENTNAME.net_msg_bet_ranklist, list_player_bet);
+		// shareData.socketServer.sendToGroup(params.gounpId, EVENTNAME.net_msg_bet_ranklist, list_player_bet);
+		shareData.socketServer.sendTo_Group(params.gounpId, EVENTNAME.net_msg_the_game_all_betting_result_B, {},);
 	});
 	//游戏内广播中奖榜
 	EventHandler.on(shareData.eventHandler.Inner.BROADCAST_BONUSRANK,  (params) => {	

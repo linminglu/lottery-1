@@ -8,10 +8,10 @@ class Robot{
     }
 
     init(data){
-        this.playerName = data.game_nick;
-        this.playerType = parseInt(data.game_user_type);//1正式账号2测试账号3机器人
-        this.gameGold = data.game_gold;
-        this.testGold = data.test_Gold;
+        this.playerName = data.game_nick;               // 昵称
+        this.playerType = parseInt(data.game_user_type);// 1正式账号2测试账号3机器人
+        this.gameGold = data.game_gold;                 // 游戏金币
+        this.testGold = data.test_Gold;                 // 测试金币
         this.usedGold = 1;
     }
 

@@ -1,16 +1,18 @@
 const request = require('request');
+const errResult = require('../socket/errResult.js')
 
 let net_msg_login =  (server) => {
-    server.reg( EVENTNAMEVV.net_msg_login, (params) => {
+    server.reg( EVENTNAME.net_msg_login, (params) => {
         console.log("playerId=" + params.playerId + "彩种代码=" + params.lotteryCode + '游戏类型=' + params.gameType);
         let playerId = params.playerId;
         let gameType = params.gameType;
         let lotteryCode = params.lotteryCode;
         //检查是否已经登陆过
-        // if (null != server.shareData.uid_socketId[playerId]) {
-        //     server.sendError('server_error_msg', '已经在游戏中，不能重复登陆!');
-        //     return;
-        // }
+        if (server.shareData.uid_socketId[playerId]) {
+            // server.sendError(EVENTNAME.server_error_msg, '已经在游戏中，不能重复登陆!');
+            server.sendError(EVENTNAME.server_error_msg, errResult.relogin_err);
+            return;
+        }
         shareData.playerMgr.addPlayer(server.socket.id, playerId, lotteryCode, gameType);
         shareData.socketClient.getUserInfo(playerId);
     });
@@ -133,7 +135,8 @@ let net_msg_login =  (server) => {
         server.socket.leave(player.gameType);
 
         shareData.playerMgr.delPlayer(data.id);
-        server.send( EVENTNAME.net_msg_logout, "退出成功！");
+        // server.send( EVENTNAME.net_msg_logout, "退出成功！");
+        server.send( EVENTNAME.net_msg_logout, errResult.suc);
         server.socket.disconnect();
     });
 };

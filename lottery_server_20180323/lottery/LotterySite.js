@@ -24,6 +24,7 @@ class LotterySite{
     }
 
      startHandler(code){
+        console.log(`LotterySite_startHandler ==>> ${code}`)
         shareData.eventHandler.on(EVENTNAME.inner_event_lotterylist_ + code, (data) => {
             console.log(`LotterySite-startHandler-inner_event_lotterylist_${code} ==>>`)
             this.initLotteryHistory(data)
@@ -35,20 +36,27 @@ class LotterySite{
     }
 
     updateLotteryInfo(){
-        console.log("LotterySite-updateLotteryInfo => ")
+        console.log("LotterySite-updateLotteryInfo ==>> ")
         // console.dir(this.lotteryInfo)
         // console.dir(this.lotteryList)
         let data = this.lotteryList[0];
         this.lotteryInfo.lastIssue = data.issue;
         this.lotteryInfo.nowIssue = LotteryTool.getNextIssue(data);
         this.lotteryInfo.endTime = LotteryTool.getNowIssueEndTime(data);
-         console.dir(this.lotteryInfo)
-        MongooseClient.addLotteryIssueRecord(this.source, this.lotteryInfo.nowIssue);
+        // console.dir(this.lotteryInfo)
+        // console.dir(shareData.MongooseClient.LotteryRecordModel)
+        shareData.MongooseClient.LotteryRecordModel.addLotteryIssueRecord(this.source, this.lotteryInfo.nowIssue);
     }
 
     updateLotteryCode(data){
-        console.log("LotterySite-updateLotteryCode => ")
-        return MongooseClient.updateLotteryCode(data.issue, data.code, data.opendate);
+        return new Promise((resolve, reject) => {
+            console.log("LotterySite-updateLotteryCode ==>> ");
+            shareData.MongooseClient.LotteryRecordModel.updateLotteryCode(data.issue, data.code, data.opendate).then( (data)=>{
+                resolve(data)
+            } ).catch( (err)=>{
+                reject(err)
+            } )
+        });
     }
 
     initLotteryHistory(data){
@@ -88,6 +96,11 @@ class LotterySite{
 
 
     requestNextLottery() {
+        console.log(`lotterySite-requestNextLottery`)
+        // console.log(`this.lotterySource ==>>`)
+        // console.dir(this.lotterySource)
+        // console.log(`this.hasInitLottery ==>>`)
+        // console.dir(this.hasInitLottery)
         if (this.lotterySource && this.hasInitLottery) {
             this.lotterySource.requestNextLottery({issue:this.lotteryInfo.nowIssue, code:this.source});
         }  

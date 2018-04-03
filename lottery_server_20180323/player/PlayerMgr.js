@@ -11,8 +11,8 @@ class PlayerMgr{
         this.socketId_uid = {};
     }
 
-    static sendBetFailedMessage  (pId) {
-        shareData.sendByUid(pId, EVENTNAME.net_msg_betting_result, "资金不足", 2);
+    static sendBetFailedMessage  (pId, error) {
+        shareData.sendByUid(pId, EVENTNAME.net_msg_betting_result, error, 2);
     }   
 
     addPlayer(sId, pId, code, gameType){

@@ -1,5 +1,6 @@
 const bet = require('../model/Bet.js');
 const request = require('request');
+const errResult = require('../socket/errResult.js')
 
 let  generateBettingItem = (data) => {    
     console.log(`betting-generateBettingItem ==>>`)
@@ -28,13 +29,15 @@ let net_msg_betting =  (server) => {
         let isEnd = shareData.lotteryMgr.isEnd(player.lotteryCode);
         //判断投注是否已经截至
         if (isEnd) {
-            server.sendError( EVENTNAME.net_msg_betting_result, '本期投注已截至');
+            // server.sendError( EVENTNAME.net_msg_betting_result, '本期投注已截至');
+            server.sendError( EVENTNAME.net_msg_betting_result, errResult.bet_stop_err);
             return;
         }
 
         let length = params.list.length;
         if (length < 1) {
-            server.sendError( EVENTNAME.net_msg_betting_result, '未选择投注类型');
+            // server.sendError( EVENTNAME.net_msg_betting_result, '未选择投注类型');
+            server.sendError( EVENTNAME.net_msg_betting_result, errResult.bet_type_err);
             return;
         } 
 
@@ -47,7 +50,8 @@ let net_msg_betting =  (server) => {
         for (let index = 0; index < length; index++) {
             item = generateBettingItem(params.list[index]);
             if (null == item) {
-                server.sendError( EVENTNAME.net_msg_betting_result, '投注的数据不合法');
+                // server.sendError( EVENTNAME.net_msg_betting_result, '投注的数据不合法');
+                server.sendError( EVENTNAME.net_msg_betting_result, errResult.bet_data_err);
                 return;
             }
             //期号(20171230001)|彩源|投注类型(LD)|玩家ID|投注金额
@@ -61,7 +65,8 @@ let net_msg_betting =  (server) => {
             bettingList.push(item);
         }
         if (!shareData.playerMgr.moneyIsEnough(player.playerId, betTotalMoney)) {
-            server.sendError( EVENTNAME.net_msg_betting_result, '资金不足');
+            // server.sendError( EVENTNAME.net_msg_betting_result, '资金不足');
+            server.sendError( EVENTNAME.net_msg_betting_result, errResult.bet_data_no_ength_money);
             return;
         }
         shareData.gameMgr.addPreBetItem(bettingList, player.lotteryCode, player.gameType).then((itemListA) => {
@@ -84,7 +89,8 @@ let net_msg_betting =  (server) => {
         let serverIssue = shareData.lotteryMgr.getLotteryInfo(player.lotteryCode).nowIssue;
         let key = `${player.playerId}_${player.lotteryCode}_${player.gameType}`;
         if (player.hasAuto || player.autoBetList) {
-            server.sendError( EVENTNAME.server_error_msg, '挂机失败,不能重复挂机');
+            // server.sendError( EVENTNAME.server_error_msg, '挂机失败,不能重复挂机');
+            server.sendError( EVENTNAME.server_error_msg, errResult.auto_rebetting_err);
             return;
         }
         
@@ -93,38 +99,56 @@ let net_msg_betting =  (server) => {
                 return;
             }
             if (res.length < 1) {
-                server.sendError( EVENTNAME.server_error_msg, '挂机失败,本期未投注');
+                // server.sendError( EVENTNAME.server_error_msg, '挂机失败,本期未投注');
+                server.sendError( EVENTNAME.server_error_msg, errResult.auto_betting_no_bet_err);
                 return;
             }
-            let sendData = [];
+            let sendDataArr = [];
             res.forEach(bet => {
-                sendData.push({playerId:bet.playerId, gameType:bet.gameType, betType:bet.betType, betMoney:bet.betMoney, lotteryCode:bet.lotteryCode});
+                sendDataArr.push({playerId:bet.playerId, gameType:bet.gameType, betType:bet.betType, betMoney:bet.betMoney, lotteryCode:bet.lotteryCode});
             });
-            shareData.mongooseClient.addAutoBetOrder(sendData, (state)=>{
+            shareData.mongooseClient.addAutoBetOrder(sendDataArr, (state)=>{
                 if (state) {
-                    server.send( EVENTNAME.net_msg_auto_betlist, sendData);
-                    server.send( EVENTNAME.net_msg_enable_auto, '挂机成功');
-                    player.setAutoData(sendData);
+                    player.setAutoData(sendDataArr);
+                    // server.send( EVENTNAME.net_msg_auto_betlist, sendData);
+                    server.sendClient( EVENTNAME.net_msg_auto_betlist, {betlist:sendData}, );
+                    // server.send( EVENTNAME.net_msg_enable_auto, '挂机成功');
+                    sendData = {
+                        suc:errResult.suc,
+                        err:''
+                    }
+                    server.sendClient( EVENTNAME.net_msg_enable_auto,,);
+                    
                 }
             });
         });    
     });
+
+    // 取消自动挂机
     server.reg( EVENTNAME.net_msg_cancel_auto_betting, function (params) {
         console.log(`betting-net_msg_betting-net_msg_cancel_auto_betting ==>>`)
         let player = shareData.playerMgr.getPlayerBySocketId(server.socket.id);
         if (null == player) {
             console.log('用户不存在');
-            server.sendError( EVENTNAME.net_msg_cancel_auto, '取消失败,用户不存在');
+            // server.sendError( EVENTNAME.net_msg_cancel_auto, '取消失败,用户不存在');
+            server.sendError( EVENTNAME.net_msg_cancel_auto, errResult.cancel_auto_betting_player_no_exist_err);
             return;
         }
         if (!player.hasAuto) {
-            server.sendError( EVENTNAME.net_msg_cancel_auto, '取消失败,没有挂机状态');
+            // server.sendError( EVENTNAME.net_msg_cancel_auto, '取消失败,没有挂机状态');
+            server.sendError( EVENTNAME.net_msg_cancel_auto, errResult.cancel_auto_err);
             return;
         }
         shareData.mongooseClient.delAutoBetOrder(player.playerId, player.lotteryCode, player.gameType, (state)=>{
             if (state) {
-                server.send( EVENTNAME.net_msg_cancel_auto, '取消挂机成功');
+                // server.send( EVENTNAME.net_msg_cancel_auto, '取消挂机成功');
+                // server.send( EVENTNAME.net_msg_cancel_auto, errResult.suc);
                 player.cancelAutoData();
+                let sendData = {
+                    suc:errResult.suc,
+                    err:''
+                }
+                server.sendClient( EVENTNAME.net_msg_cancel_auto_betting_result , sendData )
             }
         });
     });

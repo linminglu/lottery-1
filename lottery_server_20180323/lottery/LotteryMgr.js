@@ -10,28 +10,30 @@ class LotteryMgr{
             this.sourceList[code] = source;
         }
         console.log(`LotteryMgr-sourceList ==>>`)
-        console.dir(this.sourceList)
-        // let configGameType = [...config]
-        // configGameType.forEach(code => {
-            
-        // });
-        this.lotteryTimer = setInterval(this.intervalRequestLottery,1000);
+        this.lotteryTimer = setInterval(
+            ()=>{
+                this.intervalRequestLottery().then( () =>{
+                    console.log(` LotteryMgr-lotteryTimer ==>> suc`)
+                }).catch( (err)=>{
+                    console.log(` LotteryMgr-lotteryTimer err: ${err}`);
+                })
+            },1000);
     }
     
     intervalRequestLottery(){
-        console.log(`LotteryMgr-intervalRequestLottery ==>>`)
-        
-        let source;
-        for (let code in this.sourceList) {
-            console.log(`code :${code}`)
-            // if (this.sourceList.hasOwnProperty(code)) {
-                source = this.sourceList[code];
-                console.dir(source)
+        return new Promise((resolve, reject) => {
+             let source;
+            let that = this;
+            console.log(`LotteryMgr-intervalRequestLottery ==>>`)           
+            for (let code in that.sourceList) {
+                source = that.sourceList[code];
                 if (source) {
                     source.requestNextLottery();
                 }
-            // }
-        }
+            }
+            resolve(1);
+        });
+       
     }
     /**
      * 获取彩源历史记录
